@@ -1,0 +1,81 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// Define o endereço do LCD, 16 colunas e 2 linhas
+LiquidCrystal_I2C lcd(0x27, 16, 2);  // O endereço pode ser 0x27 ou 0x3F
+
+const int pinoSensor = A0;
+const int pinoValvula = 10;
+const int limiarSeco = 60; // Limite para considerar o solo seco
+
+// Tempo em unidades naturais
+int tempoRegaSeg = 78;                // Tempo base para rega
+int tempoEsperaAposRegaMin = 480;      // Espera após rega (minutos)
+int tempoEsperaEncharcadoMin = 60;     // Espera se solo úmido (minutos)
+
+unsigned long tempoRega = tempoRegaSeg * 60000UL;
+unsigned long tempoEsperaAposRega = tempoEsperaAposRegaMin * 60000UL;
+unsigned long tempoEsperaEncharcado = tempoEsperaEncharcadoMin * 60000UL;
+
+unsigned long tempoEstimado = 5000; // Tempo inicial para próxima leitura (ms)
+int umidadeSolo = 0;
+
+void setup() {
+  lcd.init();
+  lcd.backlight(); // Liga a luz de fundo
+
+  pinMode(pinoValvula, OUTPUT);
+  digitalWrite(pinoValvula, LOW);
+
+  lcd.setCursor(0, 0);
+  lcd.print(" Smart Drizzle ");
+
+  Serial.begin(9600);
+   delay(4000); // Espera inicial
+}
+
+
+void loop() {
+
+  tempoEstimado = tempoEstimado/1000;
+
+  // Loop de medição de umidade
+  for(int i = 0; i < tempoEstimado; i++) {
+    lcd.setCursor(0, 1);
+    lcd.print("Umidade: ");
+
+    // Faz a leitura do sensor
+    umidadeSolo = analogRead(pinoSensor);
+    // Mapeia o valor lido para uma escala percentual (invertida)
+    umidadeSolo = map(umidadeSolo, 1024, 0, 0, 100);
+
+    lcd.print(umidadeSolo);
+    lcd.print(" %    ");
+
+    delay(1000); // Mede a cada segundo
+  }
+
+  // Verifica se precisa regar
+  if(umidadeSolo < limiarSeco) {
+    lcd.setCursor(0, 1);
+    lcd.print("    Regando     ");
+
+    digitalWrite(pinoValvula, HIGH); // Abre a válvula
+
+    delay(tempoRega); // Mantém a válvula aberta pelo tempo definido
+
+    digitalWrite(pinoValvula, LOW); // Fecha a válvula
+
+    // Define o próximo tempo de espera (após rega)
+    tempoEstimado = tempoEsperaAposRega;
+
+  }
+  else { // Se não precisa regar (solo úmido/encharcado)
+    lcd.setCursor(0, 1);
+    lcd.print("Solo Encharcado ");
+
+    // Define o próximo tempo de espera (solo úmido)
+    tempoEstimado = tempoEsperaEncharcado;
+
+  }
+}
