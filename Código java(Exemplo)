@@ -1,0 +1,85 @@
+package com.seuapp.irrigacao;
+
+import android.os.Bundle;
+import android.view.View;
+import android.widget.*;
+import androidx.appcompat.app.AppCompatActivity;
+import java.io.*;
+import java.net.*;
+import android.os.AsyncTask;
+
+public class MainActivity extends AppCompatActivity {
+    TextView tvMoisture;
+    EditText etThreshold, etValveTime, etInterval;
+    Button btnSend, btnRefresh;
+
+    final String arduinoIP = "http://192.168.0.100"; // IP do Arduino
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        tvMoisture = findViewById(R.id.tvMoisture);
+        etThreshold = findViewById(R.id.etThreshold);
+        etValveTime = findViewById(R.id.etValveTime);
+        etInterval = findViewById(R.id.etInterval);
+        btnSend = findViewById(R.id.btnSend);
+        btnRefresh = findViewById(R.id.btnRefresh);
+
+        btnSend.setOnClickListener(view -> {
+            String threshold = etThreshold.getText().toString();
+            String valveTime = etValveTime.getText().toString();
+            String interval = etInterval.getText().toString();
+
+            String params = "?threshold=" + threshold + "&valveTime=" + valveTime + "&interval=" + interval;
+            new SendConfigTask().execute(arduinoIP + "/config" + params);
+        });
+
+        btnRefresh.setOnClickListener(view -> {
+            new GetDataTask().execute(arduinoIP + "/status");
+        });
+    }
+
+    private class SendConfigTask extends AsyncTask<String, Void, String> {
+        protected String doInBackground(String... urls) {
+            try {
+                URL url = new URL(urls[0]);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.connect();
+                return "Enviado com sucesso!";
+            } catch (Exception e) {
+                return "Erro: " + e.getMessage();
+            }
+        }
+
+        protected void onPostExecute(String result) {
+            Toast.makeText(MainActivity.this, result, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private class GetDataTask extends AsyncTask<String, Void, String> {
+        protected String doInBackground(String... urls) {
+            try {
+                URL url = new URL(urls[0]);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                return reader.readLine();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        protected void onPostExecute(String result) {
+            if (result != null && result.contains("moisture")) {
+                int val = Integer.parseInt(result.replaceAll("\\D+", ""));
+                tvMoisture.setText("Umidade: " + val);
+            } else {
+                Toast.makeText(MainActivity.this, "Erro ao obter dados", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+}
