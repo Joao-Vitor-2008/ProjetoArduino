@@ -1,0 +1,101 @@
+#include <WiFiS3.h>
+
+const char* ssid = "SEU_SSID";
+const char* password = "SUA_SENHA";
+
+const int sensorPin = A0;
+const int valvePin = 7;
+
+int threshold = 400;                 // Limiar de umidade
+int valveOpenTime = 5000;           // Tempo que a válvula fica aberta (ms)
+int measurementInterval = 10000;    // Intervalo entre medições (ms)
+unsigned long lastMeasure = 0;
+
+WiFiServer server(80);
+String header;
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(valvePin, OUTPUT);
+  digitalWrite(valvePin, LOW);
+
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi conectado. IP: " + WiFi.localIP().toString());
+  server.begin();
+}
+
+void loop() {
+  unsigned long now = millis();
+  if (now - lastMeasure > measurementInterval) {
+    int moisture = analogRead(sensorPin);
+    Serial.print("Umidade: ");
+    Serial.println(moisture);
+    if (moisture < threshold) {
+      digitalWrite(valvePin, HIGH);
+      delay(valveOpenTime);
+      digitalWrite(valvePin, LOW);
+    }
+    lastMeasure = now;
+  }
+
+  WiFiClient client = server.available();
+  if (client) {
+    String currentLine = "";
+    header = "";
+
+    while (client.connected()) {
+      if (client.available()) {
+        char c = client.read();
+        header += c;
+        if (c == '\n' && currentLine.length() == 0) {
+          if (header.indexOf("GET /status") >= 0) {
+            int moisture = analogRead(sensorPin);
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-Type: application/json");
+            client.println("Connection: close");
+            client.println();
+            client.print("{\"moisture\":");
+            client.print(moisture);
+            client.println("}");
+          } else if (header.indexOf("GET /config") >= 0) {
+            int newThreshold = getParam(header, "threshold").toInt();
+            int newValveTime = getParam(header, "valveTime").toInt();
+            int newInterval = getParam(header, "interval").toInt();
+
+            if (newThreshold > 0) threshold = newThreshold;
+            if (newValveTime > 0) valveOpenTime = newValveTime * 1000;
+            if (newInterval > 0) measurementInterval = newInterval * 1000;
+
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-Type: text/plain");
+            client.println("Connection: close");
+            client.println();
+            client.println("Configurações atualizadas");
+          } else {
+            client.println("HTTP/1.1 404 Not Found");
+            client.println("Connection: close");
+            client.println();
+          }
+          break;
+        } else if (c != '\r') {
+          currentLine += c;
+        }
+      }
+    }
+    delay(1);
+    client.stop();
+  }
+}
+
+String getParam(String data, String name) {
+  int start = data.indexOf(name + "=");
+  if (start == -1) return "";
+  start += name.length() + 1;
+  int end = data.indexOf("&", start);
+  if (end == -1) end = data.length();
+  return data.substring(start, end);
+}
