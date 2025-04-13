@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/tvMoisture"
+        android:text="Umidade: --"
+        android:textSize="20sp"
+        android:layout_marginBottom="16dp"/>
+
+    <EditText
+        android:id="@+id/etThreshold"
+        android:hint="Limiar de Umidade"
+        android:inputType="number"
+        android:layout_marginBottom="8dp"/>
+
+    <EditText
+        android:id="@+id/etValveTime"
+        android:hint="Tempo de válvula (s)"
+        android:inputType="number"
+        android:layout_marginBottom="8dp"/>
+
+    <EditText
+        android:id="@+id/etInterval"
+        android:hint="Intervalo de medições (s)"
+        android:inputType="number"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/btnSend"
+        android:text="Enviar configurações"
+        android:layout_marginBottom="16dp"/>
+
+    <Button
+        android:id="@+id/btnRefresh"
+        android:text="Atualizar leitura"/>
+</LinearLayout>
